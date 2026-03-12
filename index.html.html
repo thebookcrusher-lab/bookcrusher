@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book Crusher</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+–black: #0a0a0a;
+–teal: #00C9B1;
+–cobalt: #2563EB;
+–pink: #EC4899;
+–lime: #84CC16;
+–orange: #F97316;
+–purple: #8B5CF6;
+–yellow: #FBBF24;
+–red: #EF4444;
+–cyan: #22D3EE;
+–white: #ffffff;
+–gold: #B8860B;
+–gold-light: #DAA520;
+–gold-bright: #FFD700;
+–cream: #FDF8EE;
+–brown: #6B4C2A;
+–brown-light: #8B6340;
+}
+
+body {
+min-height: 100vh;
+font-family: ‘DM Sans’, sans-serif;
+background: var(–black);
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+padding: 2rem 1rem;
+position: relative;
+overflow-x: hidden;
+}
+
+/* ── Confetti ── */
+#confettiCanvas { position:fixed; inset:0; pointer-events:none; z-index:100; }
+
+/* ── Background pebbles ── */
+.pebbles-bg { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+.pebble {
+position:absolute;
+border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
+animation: pebbleDrift ease-in-out infinite alternate;
+}
+.pebble::after {
+content:’’; position:absolute; top:18%; left:22%; width:28%; height:18%;
+background:rgba(255,255,255,0.5); border-radius:50%; transform:rotate(-30deg);
+}
+@keyframes pebbleDrift {
+from { transform:translateY(0) rotate(0deg) scale(1); }
+to   { transform:translateY(-18px) rotate(7deg) scale(1.04); }
+}
+
+/* ── Screen system ── */
+.screen { display:none; position:relative; z-index:1; width:100%; max-width:480px; flex-direction:column; align-items:center; gap:1rem; }
+.screen.active { display:flex; animation: screenIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
+@keyframes screenIn {
+from { opacity:0; transform:translateY(28px) scale(0.97); }
+to   { opacity:1; transform:translateY(0) scale(1); }
+}
+
+/* ══════════════════════════════
+SCREEN 1 — Setup
+══════════════════════════════ */
+.card {
+background: rgba(15,15,15,0.88);
+backdrop-filter: blur(20px);
+border: 1.5px solid rgba(255,255,255,0.07);
+border-radius: 32px;
+padding: 2.8rem 2.4rem 2.4rem;
+width: 100%;
+box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(0,201,177,0.07);
+}
+
+.logo-area { text-align:center; margin-bottom:2rem; }
+
+.logo-bubbles { display:flex; justify-content:center; align-items:center; gap:7px; margin-bottom:1rem; }
+.logo-pebble {
+border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
+position:relative;
+animation: pebblePop 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.logo-pebble::after { content:’’; position:absolute; top:15%; left:20%; width:30%; height:22%; background:rgba(255,255,255,0.75); border-radius:50%; transform:rotate(-30deg); }
+@keyframes pebblePop { from{opacity:0;transform:scale(0) rotate(-20deg);} to{opacity:1;transform:scale(1) rotate(0deg);} }
+.logo-pebble:nth-child(1){background:var(–teal);  width:20px;height:20px;animation-delay:0.1s;}
+.logo-pebble:nth-child(2){background:var(–pink);  width:28px;height:26px;animation-delay:0.2s;}
+.logo-pebble:nth-child(3){background:var(–cobalt);width:22px;height:22px;animation-delay:0.05s;}
+.logo-pebble:nth-child(4){background:var(–orange);width:18px;height:18px;animation-delay:0.25s;}
+.logo-pebble:nth-child(5){background:var(–lime);  width:24px;height:22px;animation-delay:0.15s;}
+
+h1 { font-family:‘Cormorant Garamond’,serif; font-size:3.2rem; font-weight:700; letter-spacing:-0.02em; line-height:1; color:var(–white); margin-bottom:0.4rem; }
+h1 span { background:linear-gradient(90deg,var(–teal),var(–cyan),var(–lime)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.tagline { font-size:0.78rem; font-weight:300; color:rgba(255,255,255,0.35); letter-spacing:0.1em; text-transform:uppercase; }
+
+.form-group { margin-bottom:1.2rem; }
+label { display:block; font-size:0.7rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(–teal); margin-bottom:0.45rem; }
+input[type=“text”], input[type=“number”], textarea {
+width:100%; padding:0.85rem 1.1rem; border:1.5px solid rgba(255,255,255,0.09); border-radius:14px;
+font-family:‘DM Sans’,sans-serif; font-size:0.95rem; color:var(–white);
+background:rgba(255,255,255,0.05); outline:none; transition:all 0.25s ease;
+}
+input:focus, textarea:focus { border-color:var(–teal); background:rgba(0,201,177,0.07); box-shadow:0 0 0 4px rgba(0,201,177,0.12); }
+input::placeholder, textarea::placeholder { color:rgba(255,255,255,0.18); }
+
+.days-row { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.6rem; }
+.day-chip {
+padding:0.45rem 0.9rem; border-radius:50px; border:1.5px solid rgba(255,255,255,0.1);
+background:rgba(255,255,255,0.04); font-family:‘DM Sans’,sans-serif; font-size:0.82rem;
+font-weight:500; color:rgba(255,255,255,0.45); cursor:pointer; transition:all 0.2s ease;
+}
+.day-chip:hover { border-color:var(–teal); color:var(–teal); transform:translateY(-2px); }
+.day-chip.active { background:var(–teal); border-color:var(–teal); color:var(–black); font-weight:600; box-shadow:0 4px 16px rgba(0,201,177,0.4); transform:translateY(-2px); }
+.or-text { font-size:0.7rem; color:rgba(255,255,255,0.2); margin:0.5rem 0 0.4rem; text-align:center; }
+
+.result-preview {
+border-radius:20px; padding:1.1rem 1.2rem; margin-bottom:1.4rem; text-align:center;
+min-height:72px; display:flex; align-items:center; justify-content:center;
+border:1.5px solid rgba(0,201,177,0.18); background:linear-gradient(135deg,rgba(0,201,177,0.1),rgba(34,211,238,0.05));
+}
+.result-preview p { font-size:0.88rem; color:rgba(255,255,255,0.28); font-style:italic; }
+.pages-per-day { font-family:‘Cormorant Garamond’,serif; font-size:2.6rem; font-weight:700; color:var(–teal); display:block; line-height:1; text-shadow:0 0 30px rgba(0,201,177,0.5); }
+.pages-label { font-size:0.8rem; color:rgba(255,255,255,0.4); margin-top:0.3rem; display:block; }
+
+.btn-primary {
+width:100%; padding:1rem; border:none; border-radius:16px;
+background:linear-gradient(135deg,var(–teal) 0%,var(–cyan) 50%,var(–lime) 100%);
+color:var(–black); font-family:‘DM Sans’,sans-serif; font-size:1rem; font-weight:600;
+letter-spacing:0.04em; cursor:pointer; transition:all 0.3s ease;
+box-shadow:0 6px 24px rgba(0,201,177,0.4); position:relative; overflow:hidden;
+}
+.btn-primary::after { content:’’; position:absolute; top:10%; left:15%; width:30%; height:35%; background:rgba(255,255,255,0.22); border-radius:50%; transform:rotate(-20deg); pointer-events:none; }
+.btn-primary:hover { transform:translateY(-3px) scale(1.01); box-shadow:0 12px 32px rgba(0,201,177,0.5); }
+.btn-primary:active { transform:translateY(0) scale(0.99); }
+
+.jewel-row { display:flex; justify-content:center; gap:6px; margin-top:1.2rem; }
+.jewel { width:11px; height:11px; border-radius:60% 40% 55% 45% / 50% 60% 40% 50%; position:relative; cursor:pointer; transition:transform 0.2s; }
+.jewel::after { content:’’; position:absolute; top:15%; left:20%; width:30%; height:25%; background:rgba(255,255,255,0.75); border-radius:50%; }
+.jewel:hover { transform:scale(1.7) rotate(10deg); }
+.jewel:nth-child(1){background:var(–pink);} .jewel:nth-child(2){background:var(–cobalt);}
+.jewel:nth-child(3){background:var(–orange);} .jewel:nth-child(4){background:var(–lime);}
+.jewel:nth-child(5){background:var(–purple);} .jewel:nth-child(6){background:var(–yellow);}
+.jewel:nth-child(7){background:var(–red);} .jewel:nth-child(8){background:var(–teal);}
+
+.footer-note { text-align:center; margin-top:0.8rem; font-size:0.72rem; color:rgba(255,255,255,0.18); }
+.footer-note span { color:var(–pink); }
+
+/* ══════════════════════════════
+SCREEN 2 — Daily Tracker
+══════════════════════════════ */
+.s2-header {
+background:rgba(15,15,15,0.85); backdrop-filter:blur(20px);
+border:1.5px solid rgba(255,255,255,0.07); border-radius:24px;
+padding:1.4rem 1.8rem; display:flex; align-items:center; justify-content:space-between; width:100%;
+}
+.header-left h2 { font-family:‘Cormorant Garamond’,serif; font-size:1.5rem; font-weight:700; color:var(–white); line-height:1.1; }
+.header-left h2 span { background:linear-gradient(90deg,var(–teal),var(–cyan)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.header-left p { font-size:0.72rem; color:rgba(255,255,255,0.3); margin-top:0.2rem; letter-spacing:0.06em; text-transform:uppercase; }
+.day-badge { background:linear-gradient(135deg,var(–teal),var(–lime)); border-radius:50%; width:52px; height:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 16px rgba(0,201,177,0.4); }
+.day-badge span:first-child { font-size:0.55rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:rgba(0,0,0,0.6); line-height:1; }
+.day-badge span:last-child { font-family:‘Cormorant Garamond’,serif; font-size:1.6rem; font-weight:700; color:var(–black); line-height:1; }
+
+.main-row { display:flex; gap:1rem; align-items:stretch; width:100%; }
+
+.battery-wrap { background:rgba(15,15,15,0.85); backdrop-filter:blur(20px); border:1.5px solid rgba(255,255,255,0.07); border-radius:24px; padding:1.2rem 1rem; display:flex; flex-direction:column; align-items:center; gap:0.6rem; min-width:72px; }
+.battery-label { font-size:0.6rem; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:var(–teal); }
+.battery-outer { width:36px; flex:1; min-height:160px; background:rgba(255,255,255,0.05); border:2px solid rgba(255,255,255,0.12); border-radius:10px; position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; }
+.battery-outer::before { content:’’; position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:14px; height:8px; background:rgba(255,255,255,0.12); border-radius:4px 4px 0 0; }
+.battery-fill { width:100%; background:linear-gradient(to top,var(–teal),var(–cyan),var(–lime)); border-radius:7px; transition:height 1.2s cubic-bezier(0.34,1.56,0.64,1); position:relative; overflow:hidden; }
+.battery-fill::after { content:’’; position:absolute; top:8px; left:20%; width:20%; height:40%; background:rgba(255,255,255,0.3); border-radius:50%; transform:rotate(-20deg); }
+.bat-bubble { position:absolute; border-radius:50%; background:rgba(255,255,255,0.2); animation:bubbleRise linear infinite; }
+@keyframes bubbleRise { from{transform:translateY(100%);opacity:0.5;} to{transform:translateY(-200%);opacity:0;} }
+.battery-pct { font-family:‘Cormorant Garamond’,serif; font-size:1.1rem; font-weight:700; color:var(–teal); }
+
+.centre-panel { flex:1; display:flex; flex-direction:column; gap:1rem; }
+.goal-card { background:rgba(15,15,15,0.85); backdrop-filter:blur(20px); border:1.5px solid rgba(255,255,255,0.07); border-radius:24px; padding:1.4rem; text-align:center; }
+.goal-label { font-size:0.68rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.3); margin-bottom:0.3rem; }
+.goal-number { font-family:‘Cormorant Garamond’,serif; font-size:3.2rem; font-weight:700; color:var(–white); line-height:1; }
+.goal-number span { background:linear-gradient(90deg,var(–orange),var(–yellow)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.goal-sub { font-size:0.78rem; color:rgba(255,255,255,0.3); margin-top:0.2rem; }
+
+.bubble-area { background:rgba(15,15,15,0.85); backdrop-filter:blur(20px); border:1.5px solid rgba(255,255,255,0.07); border-radius:24px; padding:1.4rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.8rem; position:relative; overflow:hidden; flex:1; }
+.bubble-instruction { font-size:0.68rem; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:rgba(255,255,255,0.3); }
+
+.pop-bubble { width:90px; height:90px; border-radius:60% 40% 55% 45% / 50% 60% 40% 50%; background:radial-gradient(circle at 35% 35%,var(–pink),#a21040); position:relative; cursor:pointer; transition:transform 0.15s ease; box-shadow:0 8px 32px rgba(236,72,153,0.5),inset 0 -4px 12px rgba(0,0,0,0.3); animation:bubblePulse 3s ease-in-out infinite; }
+.pop-bubble::before { content:’’; position:absolute; top:14%; left:18%; width:35%; height:25%; background:rgba(255,255,255,0.55); border-radius:50%; transform:rotate(-30deg); }
+.pop-bubble::after { content:’’; position:absolute; bottom:20%; right:16%; width:14%; height:10%; background:rgba(255,255,255,0.25); border-radius:50%; }
+@keyframes bubblePulse { 0%,100%{transform:scale(1) rotate(0deg);} 33%{transform:scale(1.06) rotate(2deg);} 66%{transform:scale(0.97) rotate(-1deg);} }
+.pop-bubble:hover { transform:scale(1.08); animation:none; }
+.pop-bubble:active { transform:scale(0.94); }
+.pop-bubble.popped { animation:popBurst 0.5s ease forwards; }
+@keyframes popBurst { 0%{transform:scale(1);opacity:1;} 40%{transform:scale(1.5);opacity:0.7;} 100%{transform:scale(0);opacity:0;} }
+.bubble-done-text { font-size:0.8rem; color:var(–teal); font-weight:500; opacity:0; transition:opacity 0.4s ease; text-align:center; }
+.bubble-done-text.show { opacity:1; }
+.star-particle { position:absolute; pointer-events:none; animation:starBurst 0.9s ease forwards; z-index:10; }
+@keyframes starBurst { 0%{transform:translate(0,0) scale(0) rotate(0deg);opacity:1;} 60%{opacity:1;} 100%{transform:translate(var(–tx),var(–ty)) scale(1.2) rotate(var(–rot));opacity:0;} }
+
+.quote-card { background:rgba(15,15,15,0.85); backdrop-filter:blur(20px); border:1.5px solid rgba(139,92,246,0.2); border-radius:24px; padding:1.2rem 1.4rem; position:relative; overflow:hidden; width:100%; }
+.quote-card::before { content:’”’; position:absolute; top:-10px; left:12px; font-family:‘Cormorant Garamond’,serif; font-size:5rem; color:rgba(139,92,246,0.15); line-height:1; pointer-events:none; }
+.quote-text { font-family:‘Cormorant Garamond’,serif; font-size:1rem; font-style:italic; color:rgba(255,255,255,0.7); line-height:1.5; position:relative; z-index:1; }
+.quote-author { font-size:0.7rem; color:var(–purple); letter-spacing:0.08em; text-transform:uppercase; margin-top:0.5rem; display:block; }
+
+.notes-card { background:rgba(15,15,15,0.85); backdrop-filter:blur(20px); border:1.5px solid rgba(255,255,255,0.07); border-radius:24px; padding:1.2rem 1.4rem; width:100%; }
+.notes-label { font-size:0.68rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(–orange); margin-bottom:0.6rem; display:block; }
+textarea { border:1.5px solid rgba(255,255,255,0.07); border-radius:14px; padding:0.8rem 1rem; color:rgba(255,255,255,0.75); line-height:1.6; resize:none; min-height:80px; }
+textarea:focus { border-color:var(–orange); background:rgba(249,115,22,0.06); box-shadow:0 0 0 4px rgba(249,115,22,0.1); }
+
+.progress-bar-wrap { background:rgba(15,15,15,0.85); backdrop-filter:blur(20px); border:1.5px solid rgba(255,255,255,0.07); border-radius:20px; padding:1rem 1.4rem; display:flex; align-items:center; gap:1rem; width:100%; }
+.progress-info { flex:1; }
+.progress-info p { font-size:0.7rem; color:rgba(255,255,255,0.3); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.4rem; }
+.progress-track { width:100%; height:8px; background:rgba(255,255,255,0.06); border-radius:50px; overflow:hidden; }
+.progress-fill { height:100%; background:linear-gradient(90deg,var(–teal),var(–cyan),var(–lime)); border-radius:50px; transition:width 1s ease; position:relative; overflow:hidden; }
+.progress-fill::after { content:’’; position:absolute; top:0; left:-100%; width:60%; height:100%; background:rgba(255,255,255,0.3); animation:shimmer 2s infinite; }
+@keyframes shimmer { to{left:200%;} }
+.progress-days { font-family:‘Cormorant Garamond’,serif; font-size:1.4rem; font-weight:700; color:var(–teal); white-space:nowrap; }
+.progress-days small { font-family:‘DM Sans’,sans-serif; font-size:0.65rem; color:rgba(255,255,255,0.3); display:block; text-align:center; text-transform:uppercase; letter-spacing:0.08em; }
+
+.btn-finish { width:100%; padding:1rem; border:none; border-radius:16px; background:linear-gradient(135deg,var(–pink),var(–orange),var(–yellow)); color:var(–black); font-family:‘DM Sans’,sans-serif; font-size:0.95rem; font-weight:600; cursor:pointer; transition:all 0.3s ease; box-shadow:0 6px 24px rgba(236,72,153,0.35); }
+.btn-finish:hover { transform:translateY(-3px); box-shadow:0 12px 28px rgba(236,72,153,0.5); }
+
+/* ══════════════════════════════
+SCREEN 3 — Certificate
+══════════════════════════════ */
+.celebration { text-align:center; }
+.trophy { font-size:4rem; display:block; margin-bottom:0.4rem; animation:trophySpin 1s ease 0.3s both; }
+@keyframes trophySpin { 0%{transform:rotate(-15deg) scale(0.8);} 60%{transform:rotate(8deg) scale(1.1);} 100%{transform:rotate(0deg) scale(1);} }
+.celebration h1 { font-family:‘Cormorant Garamond’,serif; font-size:2.8rem; font-weight:700; color:var(–white); line-height:1; margin-bottom:0.3rem; }
+.celebration h1 em { font-style:normal; background:linear-gradient(90deg,var(–yellow),var(–orange),var(–pink)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.celebration p { font-size:0.88rem; color:rgba(255,255,255,0.4); }
+
+.name-section { width:100%; background:rgba(15,15,15,0.85); backdrop-filter:blur(20px); border:1.5px solid rgba(255,255,255,0.07); border-radius:24px; padding:1.2rem 1.4rem; }
+.name-section label { color:var(–teal); }
+#nameInput { font-family:‘Cormorant Garamond’,serif; font-size:1.2rem; font-style:italic; }
+#nameInput:focus { border-color:var(–gold-light); background:rgba(218,165,32,0.07); box-shadow:0 0 0 4px rgba(218,165,32,0.1); }
+
+/* Certificate */
+.certificate-wrap { width:100%; filter:drop-shadow(0 20px 60px rgba(0,0,0,0.6)); }
+.certificate { width:100%; background:var(–cream); border-radius:4px; padding:2.4rem 2rem; position:relative; overflow:hidden; font-family:‘Cormorant Garamond’,serif; color:var(–brown); }
+.certificate::before { content:’’; position:absolute; inset:0; background-image:repeating-linear-gradient(0deg,transparent,transparent 24px,rgba(107,76,42,0.04) 24px,rgba(107,76,42,0.04) 25px),repeating-linear-gradient(90deg,transparent,transparent 24px,rgba(107,76,42,0.02) 24px,rgba(107,76,42,0.02) 25px); pointer-events:none; z-index:0; }
+.cert-border-outer { position:absolute; inset:10px; border:2.5px solid var(–gold); border-radius:2px; pointer-events:none; z-index:1; }
+.cert-border-inner { position:absolute; inset:16px; border:1px solid rgba(184,134,11,0.4); border-radius:1px; pointer-events:none; z-index:1; }
+.cert-corner { position:absolute; width:32px; height:32px; z-index:2; }
+.cert-corner svg { width:100%; height:100%; }
+.cert-corner.tl{top:6px;left:6px;} .cert-corner.tr{top:6px;right:6px;transform:scaleX(-1);}
+.cert-corner.bl{bottom:6px;left:6px;transform:scaleY(-1);} .cert-corner.br{bottom:6px;right:6px;transform:scale(-1);}
+.cert-content { position:relative; z-index:2; text-align:center; display:flex; flex-direction:column; align-items:center; gap:0.5rem; }
+.cert-top-ornament { font-size:1.4rem; color:var(–gold); letter-spacing:0.3em; margin-bottom:0.2rem; }
+.cert-title-small { font-size:0.65rem; font-family:‘DM Sans’,sans-serif; letter-spacing:0.25em; text-transform:uppercase; color:var(–brown-light); }
+.cert-main-title { font-size:2rem; font-weight:700; color:var(–gold); letter-spacing:0.05em; line-height:1; }
+.cert-divider { display:flex; align-items:center; gap:0.6rem; width:80%; color:var(–gold); font-size:0.8rem; margin:0.2rem 0; }
+.cert-divider::before,.cert-divider::after { content:’’; flex:1; height:1px; background:linear-gradient(90deg,transparent,var(–gold),transparent); }
+.cert-presented { font-size:0.7rem; font-family:‘DM Sans’,sans-serif; letter-spacing:0.15em; text-transform:uppercase; color:var(–brown-light); }
+.cert-name { font-size:2.2rem; font-weight:600; font-style:italic; color:var(–brown); line-height:1.1; min-height:2.6rem; padding:0 1rem; border-bottom:1.5px solid var(–gold); padding-bottom:0.3rem; min-width:200px; }
+.cert-body { font-size:0.85rem; color:var(–brown-light); font-style:italic; line-height:1.6; max-width:280px; }
+.cert-book { font-size:1.4rem; font-weight:700; color:var(–brown); line-height:1.2; padding:0.3rem 1rem; border-top:1px solid rgba(184,134,11,0.3); border-bottom:1px solid rgba(184,134,11,0.3); margin:0.2rem 0; }
+.cert-stats { display:flex; gap:2rem; margin:0.4rem 0; }
+.cert-stat { text-align:center; }
+.cert-stat-num { font-size:1.4rem; font-weight:700; color:var(–gold); display:block; line-height:1; }
+.cert-stat-label { font-size:0.6rem; font-family:‘DM Sans’,sans-serif; letter-spacing:0.12em; text-transform:uppercase; color:var(–brown-light); }
+.cert-seal { width:64px; height:64px; border-radius:50%; background:radial-gradient(circle at 35% 35%,var(–gold-bright),var(–gold)); display:flex; align-items:center; justify-content:center; font-size:1.8rem; box-shadow:0 0 0 3px var(–cream),0 0 0 5px var(–gold),0 4px 12px rgba(184,134,11,0.4); margin:0.4rem 0; }
+.cert-date { font-size:0.7rem; font-family:‘DM Sans’,sans-serif; color:var(–brown-light); letter-spacing:0.08em; }
+.cert-footer-ornament { font-size:1rem; color:var(–gold); letter-spacing:0.4em; margin-top:0.2rem; }
+
+.btn-row { display:flex; gap:0.8rem; width:100%; }
+.btn { flex:1; padding:0.9rem; border:none; border-radius:16px; font-family:‘DM Sans’,sans-serif; font-size:0.88rem; font-weight:600; cursor:pointer; transition:all 0.25s ease; letter-spacing:0.03em; }
+.btn-download { background:linear-gradient(135deg,var(–gold-light),var(–gold-bright)); color:var(–black); box-shadow:0 6px 20px rgba(218,165,32,0.35); }
+.btn-download:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(218,165,32,0.5); }
+.btn-print { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.7); border:1.5px solid rgba(255,255,255,0.1); }
+.btn-print:hover { background:rgba(255,255,255,0.12); transform:translateY(-2px); }
+.btn-again { width:100%; padding:0.9rem; border:none; border-radius:16px; background:linear-gradient(135deg,var(–teal),var(–cyan),var(–lime)); color:var(–black); font-family:‘DM Sans’,sans-serif; font-size:0.88rem; font-weight:600; cursor:pointer; transition:all 0.25s ease; box-shadow:0 6px 20px rgba(0,201,177,0.3); }
+.btn-again:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,201,177,0.45); }
+
+@media print {
+body { background:white !important; padding:0 !important; }
+.pebbles-bg,#confettiCanvas,.celebration,.name-section,.btn-row,.btn-again,.jewel-row,#screen1,#screen2 { display:none !important; }
+#screen3 { display:flex !important; animation:none !important; }
+.certificate-wrap { filter:none !important; }
+}
+</style>
+
+</head>
+<body>
+
+<canvas id="confettiCanvas"></canvas>
+
+<div class="pebbles-bg" id="pebblesContainer"></div>
+
+<!-- ══════════════ SCREEN 1 ══════════════ -->
+
+<div class="screen active" id="screen1">
+  <div class="card">
+    <div class="logo-area">
+      <div class="logo-bubbles">
+        <div class="logo-pebble"></div><div class="logo-pebble"></div><div class="logo-pebble"></div>
+        <div class="logo-pebble"></div><div class="logo-pebble"></div>
+      </div>
+      <h1>Book <span>Crusher</span></h1>
+      <p class="tagline">Finally finish every book you start</p>
+    </div>
+    <div class="form-group">
+      <label>Book Title</label>
+      <input type="text" id="bookTitle" placeholder="e.g. Atomic Habits" />
+    </div>
+    <div class="form-group">
+      <label>Total Pages</label>
+      <input type="number" id="totalPages" placeholder="e.g. 320" min="1" />
+    </div>
+    <div class="form-group">
+      <label>Finish in how many days?</label>
+      <div class="days-row">
+        <button class="day-chip" data-days="7">7 days</button>
+        <button class="day-chip active" data-days="14">14 days</button>
+        <button class="day-chip" data-days="21">21 days</button>
+        <button class="day-chip" data-days="30">30 days</button>
+      </div>
+      <p class="or-text">— or enter your own —</p>
+      <input type="number" id="customDays" placeholder="Custom days e.g. 18" min="1" />
+    </div>
+    <div class="result-preview" id="resultPreview">
+      <p>Enter your book details above ✨</p>
+    </div>
+    <button class="btn-primary" onclick="goToScreen2()">Crush This Book 🚀</button>
+    <div class="jewel-row">
+      <div class="jewel"></div><div class="jewel"></div><div class="jewel"></div><div class="jewel"></div>
+      <div class="jewel"></div><div class="jewel"></div><div class="jewel"></div><div class="jewel"></div>
+    </div>
+    <p class="footer-note">Built for <span>neurodiverse brains</span> — and everyone who loves books 🧡</p>
+  </div>
+</div>
+
+<!-- ══════════════ SCREEN 2 ══════════════ -->
+
+<div class="screen" id="screen2">
+
+  <div class="s2-header">
+    <div class="header-left">
+      <h2>📚 <span id="s2BookTitle">Your Book</span></h2>
+      <p>Book Crusher — keep going!</p>
+    </div>
+    <div class="day-badge">
+      <span>Day</span>
+      <span id="s2DayNum">1</span>
+    </div>
+  </div>
+
+  <div class="main-row">
+    <div class="battery-wrap">
+      <span class="battery-label">Power</span>
+      <div class="battery-outer">
+        <div class="battery-fill" id="batteryFill" style="height:0%">
+          <div id="batBubblesEl"></div>
+        </div>
+      </div>
+      <span class="battery-pct" id="batteryPct">0%</span>
+    </div>
+    <div class="centre-panel">
+      <div class="goal-card">
+        <p class="goal-label">Today's mission</p>
+        <div class="goal-number"><span id="pagesGoal">—</span></div>
+        <p class="goal-sub">pages to read today</p>
+      </div>
+      <div class="bubble-area" id="bubbleArea">
+        <span class="bubble-instruction">Done reading? Pop it! 👇</span>
+        <div class="pop-bubble" id="popBubble" onclick="popBubble()"></div>
+        <p class="bubble-done-text" id="bubbleDoneText">🌟 Amazing! Day complete!</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="quote-card">
+    <p class="quote-text" id="quoteText"></p>
+    <span class="quote-author" id="quoteAuthor"></span>
+  </div>
+
+  <div class="notes-card">
+    <span class="notes-label">📝 My thoughts on today's reading</span>
+    <textarea id="notesInput" placeholder="Write anything — a thought, a quote you loved, something that surprised you..."></textarea>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-info">
+      <p>Overall book progress</p>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="progress-days">
+      <span id="daysLeft">—</span>
+      <small>days left</small>
+    </div>
+  </div>
+
+<button class="btn-finish" onclick="goToScreen3()">🎉 I Finished My Book!</button>
+
+  <div class="jewel-row">
+    <div class="jewel"></div><div class="jewel"></div><div class="jewel"></div><div class="jewel"></div>
+    <div class="jewel"></div><div class="jewel"></div><div class="jewel"></div><div class="jewel"></div>
+  </div>
+</div>
+
+<!-- ══════════════ SCREEN 3 ══════════════ -->
+
+<div class="screen" id="screen3">
+
+  <div class="celebration">
+    <span class="trophy">🏆</span>
+    <h1>You <em>Crushed</em> It!</h1>
+    <p>Every single page. Every single day. You did it.</p>
+  </div>
+
+  <div class="name-section">
+    <label>✍️ Enter your name for the certificate</label>
+    <input type="text" id="nameInput" placeholder="Your name here..." oninput="updateCert()" />
+  </div>
+
+  <div class="certificate-wrap">
+    <div class="certificate">
+      <div class="cert-border-outer"></div>
+      <div class="cert-border-inner"></div>
+      <div class="cert-corner tl"><svg viewBox="0 0 32 32" fill="none"><path d="M2 2 L14 2 L14 4 L4 4 L4 14 L2 14 Z" fill="#B8860B"/><circle cx="8" cy="8" r="3" fill="none" stroke="#B8860B" stroke-width="1"/><circle cx="8" cy="8" r="1.2" fill="#DAA520"/></svg></div>
+      <div class="cert-corner tr"><svg viewBox="0 0 32 32" fill="none"><path d="M2 2 L14 2 L14 4 L4 4 L4 14 L2 14 Z" fill="#B8860B"/><circle cx="8" cy="8" r="3" fill="none" stroke="#B8860B" stroke-width="1"/><circle cx="8" cy="8" r="1.2" fill="#DAA520"/></svg></div>
+      <div class="cert-corner bl"><svg viewBox="0 0 32 32" fill="none"><path d="M2 2 L14 2 L14 4 L4 4 L4 14 L2 14 Z" fill="#B8860B"/><circle cx="8" cy="8" r="3" fill="none" stroke="#B8860B" stroke-width="1"/><circle cx="8" cy="8" r="1.2" fill="#DAA520"/></svg></div>
+      <div class="cert-corner br"><svg viewBox="0 0 32 32" fill="none"><path d="M2 2 L14 2 L14 4 L4 4 L4 14 L2 14 Z" fill="#B8860B"/><circle cx="8" cy="8" r="3" fill="none" stroke="#B8860B" stroke-width="1"/><circle cx="8" cy="8" r="1.2" fill="#DAA520"/></svg></div>
+      <div class="cert-content">
+        <div class="cert-top-ornament">✦ ✦ ✦</div>
+        <p class="cert-title-small">Book Crusher — Certificate of Achievement</p>
+        <h2 class="cert-main-title">CERTIFICATE</h2>
+        <div class="cert-divider">✦</div>
+        <p class="cert-presented">This certificate is proudly presented to</p>
+        <div class="cert-name" id="certName">Your Name</div>
+        <p class="cert-body">for the remarkable achievement of completing</p>
+        <div class="cert-book" id="certBook">—</div>
+        <p class="cert-body" style="margin-top:0.3rem">Read with focus, dedication, and a brilliant mind.</p>
+        <div class="cert-stats">
+          <div class="cert-stat"><span class="cert-stat-num" id="certDays">—</span><span class="cert-stat-label">Days</span></div>
+          <div class="cert-stat"><span class="cert-stat-num" id="certPages">—</span><span class="cert-stat-label">Pages</span></div>
+        </div>
+        <div class="cert-seal">📚</div>
+        <div class="cert-divider">✦</div>
+        <p class="cert-date" id="certDate"></p>
+        <div class="cert-footer-ornament">✦ ✦ ✦</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-download" onclick="downloadCert()">⬇️ Download Certificate</button>
+    <button class="btn btn-print" onclick="window.print()">🖨️ Print</button>
+  </div>
+  <button class="btn-again" onclick="crushAnother()">📚 Crush Another Book!</button>
+
+  <div class="jewel-row">
+    <div class="jewel"></div><div class="jewel"></div><div class="jewel"></div><div class="jewel"></div>
+    <div class="jewel"></div><div class="jewel"></div><div class="jewel"></div><div class="jewel"></div>
+  </div>
+</div>
+
+<script>
+// ── Background pebbles ──
+const bgContainer = document.getElementById('pebblesContainer');
+const pebbleColors = ['#00C9B1','#EC4899','#2563EB','#84CC16','#F97316','#8B5CF6','#FBBF24','#EF4444','#22D3EE'];
+for (let i = 0; i < 20; i++) {
+  const p = document.createElement('div');
+  p.className = 'pebble';
+  const size = Math.random() * 120 + 40;
+  p.style.cssText = `width:${size}px;height:${size*(0.7+Math.random()*0.5)}px;left:${Math.random()*100}%;top:${Math.random()*100}%;background:${pebbleColors[Math.floor(Math.random()*pebbleColors.length)]};opacity:${0.07+Math.random()*0.08};animation-duration:${Math.random()*8+5}s;animation-delay:${Math.random()*6}s;`;
+  bgContainer.appendChild(p);
+}
+
+// ── App state ──
+let state = { title:'', pages:0, days:14, currentDay:1, pagesPopped:0, selectedDays:14 };
+
+// ── Screen 1 logic ──
+document.querySelectorAll('.day-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    state.selectedDays = parseInt(chip.dataset.days);
+    document.getElementById('customDays').value = '';
+    updatePreview();
+  });
+});
+
+document.getElementById('customDays').addEventListener('input', e => {
+  if (e.target.value) {
+    document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
+    state.selectedDays = parseInt(e.target.value);
+    updatePreview();
+  }
+});
+
+document.getElementById('totalPages').addEventListener('input', updatePreview);
+document.getElementById('bookTitle').addEventListener('input', updatePreview);
+
+function updatePreview() {
+  const pages = parseInt(document.getElementById('totalPages').value);
+  const days = state.selectedDays;
+  const preview = document.getElementById('resultPreview');
+  if (pages && days > 0) {
+    const perDay = Math.ceil(pages / days);
+    preview.innerHTML = `<div><span class="pages-per-day">${perDay}</span><span class="pages-label">pages per day to finish in ${days} days 🎯</span></div>`;
+  } else {
+    preview.innerHTML = '<p>Enter your book details above ✨</p>';
+  }
+}
+
+function goToScreen2() {
+  const title = document.getElementById('bookTitle').value.trim();
+  const pages = parseInt(document.getElementById('totalPages').value);
+  if (!title || !pages) {
+    ['bookTitle','totalPages'].forEach(id => {
+      const el = document.getElementById(id);
+      el.style.borderColor = '#EC4899';
+      el.style.boxShadow = '0 0 0 4px rgba(236,72,153,0.2)';
+      setTimeout(() => { el.style.borderColor=''; el.style.boxShadow=''; }, 2000);
+    });
+    return;
+  }
+  state.title = title;
+  state.pages = pages;
+  state.days = state.selectedDays;
+  state.currentDay = 1;
+  state.pagesPopped = 0;
+
+  // Populate screen 2
+  document.getElementById('s2BookTitle').textContent = title;
+  document.getElementById('s2DayNum').textContent = state.currentDay;
+  document.getElementById('pagesGoal').textContent = Math.ceil(pages / state.days);
+  document.getElementById('daysLeft').textContent = state.days - state.currentDay + 1;
+  updateBattery(0);
+
+  // Set quote
+  const quotes = [
+    {text:"A reader lives a thousand lives before they die.",author:"George R.R. Martin"},
+    {text:"Today a reader, tomorrow a leader.",author:"Margaret Fuller"},
+    {text:"The more that you read, the more things you will know.",author:"Dr. Seuss"},
+    {text:"Reading is dreaming with open eyes.",author:"Anissa Trisdianty"},
+    {text:"One page at a time is still progress.",author:"Book Crusher"},
+    {text:"Your brain is extraordinary. Feed it stories.",author:"Book Crusher"},
+    {text:"A book is a dream you hold in your hands.",author:"Neil Gaiman"},
+  ];
+  const q = quotes[Math.floor(Math.random() * quotes.length)];
+  document.getElementById('quoteText').textContent = q.text;
+  document.getElementById('quoteAuthor').textContent = '— ' + q.author;
+
+  // Battery bubbles
+  const batBubblesEl = document.getElementById('batBubblesEl');
+  batBubblesEl.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const b = document.createElement('div');
+    b.className = 'bat-bubble';
+    const sz = Math.random() * 6 + 3;
+    b.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*70+10}%;animation-duration:${Math.random()*2+1.5}s;animation-delay:${Math.random()*2}s;`;
+    batBubblesEl.appendChild(b);
+  }
+
+  // Reset bubble
+  const bubble = document.getElementById('popBubble');
+  bubble.classList.remove('popped');
+  bubble.style.display = 'block';
+  document.getElementById('bubbleDoneText').classList.remove('show');
+
+  showScreen('screen2');
+}
+
+// ── Battery ──
+function updateBattery(pct) {
+  document.getElementById('batteryFill').style.height = pct + '%';
+  document.getElementById('batteryPct').textContent = Math.round(pct) + '%';
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+// ── Pop sound ──
+function playPopSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const bufferSize = ctx.sampleRate * 0.12;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) { data[i] = (Math.random()*2-1) * Math.exp(-(i/ctx.sampleRate)*40) * 0.8; }
+    const noise = ctx.createBufferSource(); noise.buffer = buffer;
+    const nf = ctx.createBiquadFilter(); nf.type='bandpass'; nf.frequency.value=800; nf.Q.value=0.8;
+    const ng = ctx.createGain(); ng.gain.setValueAtTime(1,ctx.currentTime); ng.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.12);
+    noise.connect(nf); nf.connect(ng); ng.connect(ctx.destination); noise.start();
+    const osc = ctx.createOscillator(); osc.type='sine';
+    osc.frequency.setValueAtTime(220,ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(60,ctx.currentTime+0.08);
+    const og = ctx.createGain(); og.gain.setValueAtTime(0.6,ctx.currentTime); og.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.1);
+    osc.connect(og); og.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+0.1);
+  } catch(e) {}
+}
+
+// ── Bubble pop ──
+let popped = false;
+function popBubble() {
+  if (popped) return;
+  popped = true;
+  playPopSound();
+
+  const bubble = document.getElementById('popBubble');
+  const area = document.getElementById('bubbleArea');
+  const starEmojis = ['⭐','🌟','✨','💥','🎉','⚡','💫','🌈'];
+  for (let i = 0; i < 16; i++) {
+    const star = document.createElement('div');
+    star.className = 'star-particle';
+    star.textContent = starEmojis[Math.floor(Math.random()*starEmojis.length)];
+    const angle = (i/16)*360;
+    const dist = 80 + Math.random()*60;
+    star.style.cssText = `left:50%;top:50%;--tx:${Math.cos(angle*Math.PI/180)*dist}px;--ty:${Math.sin(angle*Math.PI/180)*dist}px;--rot:${Math.random()*360}deg;font-size:${0.9+Math.random()*0.8}rem;animation-delay:${Math.random()*0.1}s;`;
+    area.appendChild(star);
+    setTimeout(() => star.remove(), 1000);
+  }
+
+  bubble.classList.add('popped');
+
+  setTimeout(() => {
+    state.pagesPopped += Math.ceil(state.pages / state.days);
+    state.currentDay++;
+    const pct = Math.min(100, Math.round((state.pagesPopped / state.pages) * 100));
+    updateBattery(pct);
+    document.getElementById('daysLeft').textContent = Math.max(0, state.days - state.currentDay + 1);
+    document.getElementById('s2DayNum').textContent = state.currentDay;
+    document.getElementById('bubbleDoneText').classList.add('show');
+
+    // Reset bubble after 2s for next day
+    setTimeout(() => {
+      popped = false;
+      bubble.classList.remove('popped');
+      bubble.style.display = 'block';
+      document.getElementById('bubbleDoneText').classList.remove('show');
+    }, 2000);
+  }, 400);
+}
+
+function goToScreen3() {
+  // Populate certificate
+  document.getElementById('certBook').textContent = state.title || 'My Book';
+  document.getElementById('certDays').textContent = state.days;
+  document.getElementById('certPages').textContent = state.pages;
+  document.getElementById('certDate').textContent = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  showScreen('screen3');
+  setTimeout(() => { fireConfetti(); setTimeout(fireConfetti, 600); }, 400);
+}
+
+function updateCert() {
+  const name = document.getElementById('nameInput').value.trim();
+  document.getElementById('certName').textContent = name || 'Your Name';
+}
+
+function downloadCert() {
+  const name = document.getElementById('nameInput').value.trim();
+  if (!name) {
+    document.getElementById('nameInput').focus();
+    document.getElementById('nameInput').style.borderColor = '#EC4899';
+    setTimeout(() => document.getElementById('nameInput').style.borderColor='', 2000);
+    alert('Please enter your name first! 🌟'); return;
+  }
+  window.print();
+}
+
+function crushAnother() {
+  state = { title:'', pages:0, days:14, currentDay:1, pagesPopped:0, selectedDays:14 };
+  document.getElementById('bookTitle').value = '';
+  document.getElementById('totalPages').value = '';
+  document.getElementById('customDays').value = '';
+  document.getElementById('nameInput').value = '';
+  document.getElementById('resultPreview').innerHTML = '<p>Enter your book details above ✨</p>';
+  document.querySelectorAll('.day-chip').forEach((c,i) => c.classList.toggle('active', i===1));
+  showScreen('screen1');
+}
+
+// ── Screen transitions ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ── Confetti ──
+const canvas = document.getElementById('confettiCanvas');
+const ctx2d = canvas.getContext('2d');
+canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+const confColors = ['#00C9B1','#EC4899','#F97316','#84CC16','#8B5CF6','#FBBF24','#22D3EE','#EF4444','#DAA520'];
+let pieces = [];
+
+function fireConfetti() {
+  for (let i = 0; i < 140; i++) {
+    pieces.push({ x:Math.random()*canvas.width, y:-20-Math.random()*200, w:Math.random()*10+5, h:Math.random()*6+3, color:confColors[Math.floor(Math.random()*confColors.length)], vx:(Math.random()-0.5)*4, vy:Math.random()*3+2, rot:Math.random()*360, rotV:(Math.random()-0.5)*8, shape:Math.random()>0.5?'rect':'circle', life:1 });
+  }
+  animateConfetti();
+}
+
+function animateConfetti() {
+  ctx2d.clearRect(0,0,canvas.width,canvas.height);
+  pieces = pieces.filter(p => p.life > 0);
+  pieces.forEach(p => {
+    p.x+=p.vx; p.y+=p.vy; p.rot+=p.rotV; p.vy+=0.05;
+    if (p.y > canvas.height*0.75) p.life -= 0.02;
+    ctx2d.save(); ctx2d.translate(p.x,p.y); ctx2d.rotate(p.rot*Math.PI/180);
+    ctx2d.globalAlpha=p.life; ctx2d.fillStyle=p.color;
+    if (p.shape==='circle') { ctx2d.beginPath(); ctx2d.arc(0,0,p.w/2,0,Math.PI*2); ctx2d.fill(); }
+    else ctx2d.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+    ctx2d.restore();
+  });
+  if (pieces.length > 0) requestAnimationFrame(animateConfetti);
+  else ctx2d.clearRect(0,0,canvas.width,canvas.height);
+}
+
+window.addEventListener('resize', () => { canvas.width=window.innerWidth; canvas.height=window.innerHeight; });
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/service-worker.js");
+}
+</script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function(){
+
+const exportBtn = document.createElement("button");
+exportBtn.innerText = "📄 Export Reading Summary";
+exportBtn.style.padding = "12px";
+exportBtn.style.marginTop = "10px";
+exportBtn.style.borderRadius = "12px";
+exportBtn.style.border = "none";
+exportBtn.style.background = "#ff8c00";
+exportBtn.style.color = "#fff";
+exportBtn.style.fontSize = "16px";
+
+document.body.appendChild(exportBtn);
+
+exportBtn.addEventListener("click", function(){
+
+const canvas = document.createElement("canvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = 800;
+canvas.height = 800;
+
+ctx.fillStyle = "#ffffff";
+ctx.fillRect(0,0,800,800);
+
+ctx.fillStyle = "#000";
+ctx.font = "bold 40px Arial";
+ctx.fillText("📚 Book Crusher",240,120);
+
+ctx.font = "32px Arial";
+ctx.fillText("Reading Achievement",240,260);
+
+ctx.font = "24px Arial";
+ctx.fillText("Finish every book you start",210,420);
+
+const link = document.createElement("a");
+link.download = "bookcrusher-summary.png";
+link.href = canvas.toDataURL();
+link.click();
+
+});
+
+});
+
+</script>
+
+</body>
+</html>
